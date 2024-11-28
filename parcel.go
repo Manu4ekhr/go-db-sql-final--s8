@@ -5,107 +5,155 @@ import (
 	"fmt"
 )
 
-// Структура для представления посылки
-type Parcel struct {
-	Number    int
-	Client    int
-	Status    string
-	Address   string
-	CreatedAt string
-}
-
-// Структура для работы с базой данных
 type ParcelStore struct {
 	db *sql.DB
 }
 
-// Конструктор для создания нового ParcelStore
 func NewParcelStore(db *sql.DB) ParcelStore {
 	return ParcelStore{db: db}
 }
 
-// Метод для добавления новой посылки в базу данных
 func (s ParcelStore) Add(p Parcel) (int, error) {
-	// Реализация добавления в БД (пример без реального SQL-запроса)
-	fmt.Printf("Добавляем посылку: %+v\n", p)
-	return 1, nil // Возвращаем ID добавленной посылки
+	// реализуйте добавление строки в таблицу parcel, используйте данные из переменной p
+
+	stmt, err := s.db.Prepare("INSERT INTO parcel (client, status, address, created_at) VALUES (?, ?, ?, ?)")
+	if err != nil {
+		return 0, fmt.Errorf("error preparing insert statement: %w", err)
+	}
+	defer stmt.Close()
+
+	res, err := stmt.Exec(p.Client, p.Status, p.Address, p.CreatedAt)
+	if err != nil {
+		return 0, fmt.Errorf("error executing insert statement: %w", err)
+	}
+
+	id, err := res.LastInsertId()
+	if err != nil {
+		return 0, fmt.Errorf("error retrieving last insert ID: %w", err)
+	}
+
+	return int(id), nil
+
+	// верните идентификатор последней добавленной записи
+	//return 0, nil
 }
 
-// Метод для получения посылки по её номеру
 func (s ParcelStore) Get(number int) (Parcel, error) {
-	p := Parcel{
-		Number:    number,
-		Client:    1,
-		Status:    "registered",
-		Address:   "Address Example",
-		CreatedAt: "2024-11-15T10:00:00Z",
+	// реализуйте чтение строки по заданному number
+	// здесь из таблицы должна вернуться только одна строка
+
+	// заполните объект Parcel данными из таблицы
+	p := Parcel{}
+
+	err := s.db.QueryRow("SELECT number, client, status, address, created_at FROM parcel WHERE number = ?", number).
+		Scan(&p.Number, &p.Client, &p.Status, &p.Address, &p.CreatedAt)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return p, fmt.Errorf("parcel with number %d not found", number)
+		}
+		return p, fmt.Errorf("error retrieving parcel: %w", err)
 	}
-	// Реализация получения из БД (пока статические данные)
-	fmt.Printf("Получаем посылку с номером: %d\n", number)
+
 	return p, nil
 }
 
-// Метод для получения всех посылок клиента
 func (s ParcelStore) GetByClient(client int) ([]Parcel, error) {
-	parcels := []Parcel{
-		{Number: 1, Client: client, Status: "sent", Address: "Address 1", CreatedAt: "2024-11-01T10:00:00Z"},
-		{Number: 2, Client: client, Status: "registered", Address: "Address 2", CreatedAt: "2024-11-02T11:00:00Z"},
+	// реализуйте чтение строк из таблицы parcel по заданному client
+	// здесь из таблицы может вернуться несколько строк
+
+	// заполните срез Parcel данными из таблицы
+	var parcels []Parcel
+
+	rows, err := s.db.Query("SELECT number, client, status, address, created_at FROM parcel WHERE client = ?", client)
+	if err != nil {
+		return nil, fmt.Errorf("error retrieving parcels for client %d: %w", client, err)
 	}
-	// Реализация получения посылок по клиенту из БД
-	fmt.Printf("Получаем посылки для клиента: %d\n", client)
+	defer rows.Close()
+
+	for rows.Next() {
+		var p Parcel
+		if err := rows.Scan(&p.Number, &p.Client, &p.Status, &p.Address, &p.CreatedAt); err != nil {
+			return nil, fmt.Errorf("error scanning row: %w", err)
+		}
+		parcels = append(parcels, p)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating rows: %w", err)
+	}
+
 	return parcels, nil
 }
 
-// Метод для изменения статуса посылки
 func (s ParcelStore) SetStatus(number int, status string) error {
-	// Реализация изменения статуса в БД
-	fmt.Printf("Изменяем статус посылки с номером %d на %s\n", number, status)
+	// реализуйте обновление статуса в таблице parcel
+
+	stmt, err := s.db.Prepare("UPDATE parcel SET status = ? WHERE number = ?")
+	if err != nil {
+		return fmt.Errorf("error preparing update statement: %w", err)
+	}
+	defer stmt.Close()
+
+	_, err = stmt.Exec(status, number)
+	if err != nil {
+		return fmt.Errorf("error executing update statement: %w", err)
+	}
+
 	return nil
 }
 
-// Основная функция
-func main() {
-	// Настроим подключение к базе данных (симуляция)
-	db := &sql.DB{} // Здесь просто заглушка, для реальной работы нужно подключение к БД
+func (s ParcelStore) SetAddress(number int, address string) error {
+	// реализуйте обновление адреса в таблице parcel
+	// менять адрес можно только если значение статуса registered
 
-	store := NewParcelStore(db)
-
-	// Пример использования методов
-	parcel := Parcel{
-		Client:    1,
-		Status:    "registered",
-		Address:   "Address Example",
-		CreatedAt: "2024-11-15T10:00:00Z",
-	}
-
-	// Добавление посылки
-	id, err := store.Add(parcel)
+	parcel, err := s.Get(number)
 	if err != nil {
-		fmt.Println("Ошибка при добавлении посылки:", err)
-		return
-	}
-	fmt.Printf("Посылка добавлена с номером: %d\n", id)
-
-	// Получение посылки по номеру
-	p, err := store.Get(id)
-	if err != nil {
-		fmt.Println("Ошибка при получении посылки:", err)
-		return
-	}
-	fmt.Printf("Получена посылка: %+v\n", p)
-
-	// Изменение статуса посылки
-	err = store.SetStatus(id, "sent")
-	if err != nil {
-		fmt.Println("Ошибка при изменении статуса посылки:", err)
-		return
+		return err
 	}
 
-	// Получение всех посылок клиента
-	parcels, err := store.GetByClient(1)
-	if err != nil {
-		fmt.Println("Ошибка при получении посылок клиента:", err)
-		return
+	// Only allow address change if the status is "registered"
+	if parcel.Status != "registered" {
+		return fmt.Errorf("cannot change address for a parcel that is not 'registered'")
 	}
-	fmt.Println("Все посылки клиента 1:", parcels)
+
+	// Prepare the SQL statement to update the address
+	stmt, err := s.db.Prepare("UPDATE parcel SET address = ? WHERE number = ?")
+	if err != nil {
+		return fmt.Errorf("error preparing update statement: %w", err)
+	}
+	defer stmt.Close()
+
+	// Execute the update statement
+	_, err = stmt.Exec(address, number)
+	if err != nil {
+		return fmt.Errorf("error executing update statement: %w", err)
+	}
+	return nil
+}
+
+func (s ParcelStore) Delete(number int) error {
+	// реализуйте удаление строки из таблицы parcel
+	// удалять строку можно только если значение статуса registered
+
+	parcel, err := s.Get(number)
+	if err != nil {
+		return err
+	}
+
+	if parcel.Status != "registered" {
+		return fmt.Errorf("cannot delete a parcel that is not 'registered'")
+	}
+
+	stmt, err := s.db.Prepare("DELETE FROM parcel WHERE number = ?")
+	if err != nil {
+		return fmt.Errorf("error preparing delete statement: %w", err)
+	}
+	defer stmt.Close()
+
+	_, err = stmt.Exec(number)
+	if err != nil {
+		return fmt.Errorf("error executing delete statement: %w", err)
+	}
+
+	return nil
 }
