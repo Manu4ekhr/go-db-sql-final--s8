@@ -98,7 +98,7 @@ func (s ParcelService) Delete(number int) error {
 
 func main() {
 	// настройте подключение к БД
-	db, err := sql.Open("sqlite", "db_name.db")
+	db, err := sql.Open("sqlite", "tracker.db")
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -139,7 +139,7 @@ func main() {
 		return
 	}
 
-	// попытка удаления отправленной посылки
+	/*// попытка удаления отправленной посылки
 	err = service.Delete(p.Number)
 	if err != nil {
 		fmt.Println(err)
@@ -174,5 +174,5 @@ func main() {
 	if err != nil {
 		fmt.Println(err)
 		return
-	}
+	} */
 }
