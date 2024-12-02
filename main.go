@@ -139,7 +139,7 @@ func main() {
 		return
 	}
 
-	/*// попытка удаления отправленной посылки
+	// попытка удаления отправленной посылки
 	err = service.Delete(p.Number)
 	if err != nil {
 		fmt.Println(err)
@@ -174,5 +174,5 @@ func main() {
 	if err != nil {
 		fmt.Println(err)
 		return
-	} */
+	}
 }
